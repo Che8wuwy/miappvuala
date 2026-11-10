@@ -40,13 +40,46 @@ export async function abrirCamara(video) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite usar la cámara.');
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: false,
-    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
   });
   video.srcObject = stream;
   await video.play();
   const pista = stream.getVideoTracks()[0];
   try { await pista.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (_) {}
   return stream;
+}
+
+/** Qué permite el hardware de la cámara: zoom óptico/sensor, linterna y enfoque. */
+export function capacidades(stream) {
+  const pista = stream?.getVideoTracks()[0];
+  const cap = pista?.getCapabilities ? pista.getCapabilities() : {};
+  return {
+    zoom: cap.zoom && cap.zoom.max > cap.zoom.min ? { min: cap.zoom.min, max: Math.min(cap.zoom.max, 8), step: cap.zoom.step || 0.1 } : null,
+    linterna: !!cap.torch,
+    enfoquePunto: Array.isArray(cap.focusMode) && cap.focusMode.includes('single-shot'),
+  };
+}
+
+export async function ponerZoom(stream, valor) {
+  const pista = stream?.getVideoTracks()[0];
+  try { await pista.applyConstraints({ advanced: [{ zoom: valor }] }); return true; } catch (_) { return false; }
+}
+
+export async function ponerLinterna(stream, encendida) {
+  const pista = stream?.getVideoTracks()[0];
+  try { await pista.applyConstraints({ advanced: [{ torch: encendida }] }); return true; } catch (_) { return false; }
+}
+
+/** Enfoca en el punto tocado (x, y de 0 a 1) y luego regresa a enfoque continuo. */
+export async function enfocarEn(stream, x, y) {
+  const pista = stream?.getVideoTracks()[0];
+  if (!pista) return;
+  try {
+    await pista.applyConstraints({ advanced: [{ pointsOfInterest: [{ x, y }], focusMode: 'single-shot' }] });
+    setTimeout(() => pista.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {}), 2500);
+  } catch (_) {
+    try { await pista.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (__) {}
+  }
 }
 
 export function cerrarCamara(stream) {

@@ -1,11 +1,13 @@
 import { h, toast, alertaResultado, fechaHora, selectorColeccion } from '../core/ui.js';
 import { listarColecciones, aniosDisponibles, registrarCodigo, normalizarCodigo, codigoValido } from '../core/repo.js';
-import { abrirCamara, cerrarCamara, recortarGuia, leerCodigo, prepararOCR } from '../ocr/escaner.js';
+import { abrirCamara, cerrarCamara, recortarGuia, leerCodigo, prepararOCR, capacidades, ponerZoom, ponerLinterna, enfocarEn } from '../ocr/escaner.js';
 import { ajustes } from '../core/tema.js';
 import { ir } from '../app.js';
 import { CODIGO_MIN, CODIGO_MAX } from '../config.js';
 
 export const titulo = 'Capturar código';
+
+let zoomActual = 1; // se recuerda mientras la app esté abierta
 
 export async function render(cont) {
   const colecciones = await listarColecciones();
@@ -32,9 +34,56 @@ export async function render(cont) {
   const zonaCamara = h('div', { class: 'camara' }, video, guia,
     h('div', { class: 'camara-ayuda', text: 'Encuadra SOLO la primera línea del código' }));
 
+  // ---- Zoom, enfoque al tocar y linterna ----
+  const etiquetaZoom = h('span', { class: 'zoom-valor', text: '1.0x' });
+  const sliderZoom = h('input', { type: 'range', min: '1', max: '4', step: '0.1', value: String(zoomActual), 'aria-label': 'Zoom' });
+  const btnLinterna = h('button', { class: 'btn-cam oculto', text: '🔦', 'aria-label': 'Linterna' });
+  const controles = h('div', { class: 'controles-cam' }, h('span', { text: '🔍' }), sliderZoom, etiquetaZoom, btnLinterna);
+  let zoomDigital = true;
+  let linterna = false;
+
+  function aplicarZoomVisual(v) {
+    etiquetaZoom.textContent = Number(v).toFixed(1) + 'x';
+    // Zoom digital (si la cámara no tiene zoom propio): agranda la vista
+    video.style.transform = zoomDigital ? `scale(${v})` : '';
+  }
+  sliderZoom.addEventListener('input', async () => {
+    zoomActual = Number(sliderZoom.value);
+    if (!zoomDigital) await ponerZoom(stream, zoomActual);
+    aplicarZoomVisual(zoomActual);
+  });
+  btnLinterna.addEventListener('click', async () => {
+    linterna = !linterna;
+    if (await ponerLinterna(stream, linterna)) btnLinterna.classList.toggle('activo', linterna);
+    else linterna = false;
+  });
+  zonaCamara.addEventListener('click', (e) => {
+    if (!stream) return;
+    const r = zonaCamara.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    const anillo = h('div', { class: 'anillo-enfoque' });
+    anillo.style.left = (x * 100) + '%'; anillo.style.top = (y * 100) + '%';
+    zonaCamara.append(anillo); setTimeout(() => anillo.remove(), 900);
+    enfocarEn(stream, x, y);
+  });
+
+  async function configurarControles() {
+    const cap = capacidades(stream);
+    zoomDigital = !cap.zoom;
+    if (cap.zoom) {
+      sliderZoom.min = String(Math.max(1, cap.zoom.min)); sliderZoom.max = String(cap.zoom.max); sliderZoom.step = String(cap.zoom.step);
+    } else { sliderZoom.min = '1'; sliderZoom.max = '3'; sliderZoom.step = '0.1'; }
+    zoomActual = Math.min(Number(sliderZoom.max), Math.max(Number(sliderZoom.min), zoomActual));
+    sliderZoom.value = String(zoomActual);
+    if (!zoomDigital) await ponerZoom(stream, zoomActual);
+    aplicarZoomVisual(zoomActual);
+    btnLinterna.classList.toggle('oculto', !cap.linterna);
+    if (linterna) await ponerLinterna(stream, true);
+  }
+
   const entrada = h('input', {
     class: 'codigo-input', type: 'text', inputmode: 'text', autocomplete: 'off', autocapitalize: 'characters',
-    spellcheck: false, maxlength: String(CODIGO_MAX), placeholder: 'Ej. KCD843BFA', 'aria-label': 'Código',
+    spellcheck: false, maxlength: String(CODIGO_MAX), placeholder: 'Escribe el código', 'aria-label': 'Código',
   });
   entrada.addEventListener('input', () => {
     const pos = entrada.selectionStart;
@@ -50,7 +99,7 @@ export async function render(cont) {
       h('button', { class: 'btn primario', text: 'Verificar y guardar', onclick: () => verificar() })));
 
   const btnLeer = h('button', { class: 'btn primario grande', text: '📷 Leer código', onclick: () => leer() });
-  const panelCamara = h('div', { class: 'panel' }, zonaCamara, estadoOCR,
+  const panelCamara = h('div', { class: 'panel' }, zonaCamara, controles, estadoOCR,
     h('div', { class: 'fila-botones' },
       h('button', { class: 'btn secundario', text: '⌨️ Escribir a mano', onclick: () => mostrarConfirmar([], 'manual') }),
       btnLeer));
@@ -80,6 +129,7 @@ export async function render(cont) {
       const s = await abrirCamara(video);
       if (!activo || !panelConfirmar.classList.contains('oculto')) { cerrarCamara(s); return; }
       stream = s;
+      await configurarControles();
     } catch (e) {
       estadoOCR.textContent = 'No se pudo abrir la cámara: ' + (e.message || e.name) + '. Puedes escribir el código a mano.';
     }
@@ -91,7 +141,7 @@ export async function render(cont) {
     try {
       const recorte = recortarGuia(video, guia);
       const lista = await leerCodigo(recorte);
-      if (!lista.length) toast('No se pudo leer. Acerca un poco el celular o escríbelo a mano.');
+      if (!lista.length) toast('No se pudo leer el código. Usa el zoom y toca la imagen para enfocar, o escríbelo a mano.', 4000);
       mostrarConfirmar(lista, 'camara');
     } catch (e) {
       toast('Error al leer: ' + e.message);
@@ -122,7 +172,7 @@ export async function render(cont) {
   prepararOCR((m) => {
     if (m.status === 'recognizing text') return;
     estadoOCR.textContent = m.progress >= 1 && m.status.includes('initialized api') ? 'Lector listo.' : 'Preparando lector de texto…';
-  }).then(() => { estadoOCR.textContent = 'Lector listo. Toca "Leer código".'; })
+  }).then(() => { estadoOCR.textContent = 'Lector listo. Tip: aléjate un poco, usa el zoom y toca la imagen para enfocar.'; })
     .catch((e) => { estadoOCR.textContent = 'El lector no está disponible (' + e.message + '). Puedes escribir el código a mano.'; });
 
   mostrarCamara();

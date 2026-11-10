@@ -84,6 +84,16 @@ input[type="search"] { margin-bottom: .6rem; }
 .sugerencias { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .6rem; }
 .chip { font-family: ui-monospace, monospace; font-size: 1rem; padding: .45rem .8rem; border-radius: 99px; border: 1px solid var(--principal); background: transparent; color: var(--texto); cursor: pointer; }
 
+/* Controles de cámara */
+.camara video { transform-origin: center center; transition: transform .1s; }
+.controles-cam { display: flex; align-items: center; gap: .6rem; margin-top: .7rem; }
+.controles-cam input[type="range"] { flex: 1; }
+.zoom-valor { min-width: 2.8rem; font-weight: 700; text-align: right; }
+.btn-cam { font-size: 1.3rem; padding: .35rem .6rem; border-radius: 10px; border: 1px solid var(--borde); background: var(--superficie); cursor: pointer; }
+.btn-cam.activo { background: #facc15; border-color: #ca8a04; }
+.anillo-enfoque { position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; border: 2px solid #facc15; border-radius: 50%; pointer-events: none; animation: anillo .9s ease-out forwards; }
+@keyframes anillo { from { transform: scale(1.4); opacity: 1; } to { transform: scale(1); opacity: 0; } }
+
 /* Lista de códigos */
 .resumen { font-weight: 700; margin: .3rem 0 .6rem; }
 .lista-codigos { margin-top: .8rem; }
