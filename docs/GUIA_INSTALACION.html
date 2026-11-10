@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiAppVuala · Guía de instalación</title>
+<style>
+  body { font-family: system-ui, "Segoe UI", Roboto, sans-serif; max-width: 760px; margin: 0 auto; padding: 1.5rem; color: #1c1c1e; line-height: 1.55; background: #fafafa; }
+  h1 { color: #e85d04; margin-bottom: .2rem; }
+  h2 { border-bottom: 3px solid #e85d04; padding-bottom: .3rem; margin-top: 2.2rem; }
+  .paso { background: #fff; border: 1px solid #e3e3e6; border-radius: 12px; padding: 1rem 1.2rem; margin: 1rem 0; }
+  .paso b.n { display: inline-block; background: #e85d04; color: #fff; border-radius: 50%; width: 1.7rem; height: 1.7rem; text-align: center; line-height: 1.7rem; margin-right: .4rem; }
+  code { background: #f0f0f2; padding: .1rem .35rem; border-radius: 5px; font-size: .95em; }
+  .ojo { background: #fff4e6; border-left: 5px solid #e85d04; padding: .7rem 1rem; border-radius: 6px; }
+  .ok { background: #ecfdf3; border-left: 5px solid #16a34a; padding: .7rem 1rem; border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  td, th { border: 1px solid #e3e3e6; padding: .5rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #f6f6f7; }
+</style>
+</head>
+<body>
+<h1>MiAppVuala</h1>
+<p>Guía para publicar la app en GitHub Pages e instalarla en el celular. Versión 1.0.1.</p>
+
+<h2>1. Publicar en GitHub (una sola vez)</h2>
+
+<div class="paso"><b class="n">1</b><b>Crea tu cuenta</b> en <code>github.com/signup</code> (gratis). Confirma tu correo.</div>
+
+<div class="paso"><b class="n">2</b><b>Crea un repositorio:</b> botón verde <b>New</b> (o “+” arriba a la derecha → <i>New repository</i>).
+  <ul>
+    <li>Repository name: <code>miappvuala</code></li>
+    <li>Visibilidad: <b>Public</b> (GitHub Pages gratis lo requiere).</li>
+    <li>Marca <b>Add a README file</b> y da clic en <b>Create repository</b>.</li>
+  </ul>
+  <div class="ojo">Que sea público solo muestra el <b>código</b> de la app. Tus colecciones y códigos <b>nunca</b> se suben: viven únicamente en tu celular.</div>
+</div>
+
+<div class="paso"><b class="n">3</b><b>Sube los archivos:</b> dentro del repositorio, <b>Add file → Upload files</b>.
+  Abre la carpeta <code>MiAppVuala</code> en tu PC, selecciona <b>todo su contenido</b> (<code>index.html</code>, <code>sw.js</code>, <code>manifest.webmanifest</code> y las carpetas <code>css</code>, <code>js</code>, <code>icons</code>, <code>vendor</code>, <code>docs</code>) y arrástralo a la página. Espera a que termine y da clic en <b>Commit changes</b>.
+  <div class="ojo">Arrastra el <b>contenido</b>, no la carpeta <code>MiAppVuala</code> completa. <code>index.html</code> debe quedar en la raíz del repositorio.</div>
+</div>
+
+<div class="paso"><b class="n">4</b><b>Activa GitHub Pages:</b> <b>Settings → Pages</b>. En <i>Build and deployment</i>: Source = <b>Deploy from a branch</b>, Branch = <b>main</b> y carpeta <b>/ (root)</b>. Da clic en <b>Save</b>.
+  En 1 o 2 minutos aparece arriba la dirección: <code>https://TU-USUARIO.github.io/miappvuala/</code></div>
+
+<h2>2. Instalar en el celular</h2>
+
+<div class="paso"><b class="n">5</b>Con internet, abre esa dirección en <b>Chrome</b> del celular.</div>
+<div class="paso"><b class="n">6</b>Entra una vez a <b>Capturar código</b>: acepta el permiso de la <b>cámara</b> y espera a que diga <i>“Lector listo”</i>. Así queda descargado todo para usarse sin internet.</div>
+<div class="paso"><b class="n">7</b>Menú de Chrome (⋮) → <b>Instalar app</b> o <b>Agregar a la pantalla principal</b>. Aparece el ícono de MiAppVuala.</div>
+<div class="paso"><b class="n">8</b><b>Prueba sin internet:</b> pon el celular en modo avión y abre la app desde el ícono. Debe funcionar igual.</div>
+
+<div class="ok">Listo. Desde aquí ya no necesitas internet para capturar, consultar ni exportar.</div>
+
+<h2>3. Uso diario</h2>
+<table>
+  <tr><th>Pantalla</th><th>Qué hace</th></tr>
+  <tr><td>Capturar código</td><td>Eliges la colección (por defecto la creada más recientemente; puedes filtrar por año). Encuadras <b>solo la primera línea</b> del código en el recuadro y tocas <b>Leer código</b>. Revisas o corriges y tocas <b>Verificar y guardar</b>: <b style="color:#16a34a">verde</b> si es nuevo, <b style="color:#dc2626">rojo</b> si ya existía en esa colección.</td></tr>
+  <tr><td>Colecciones</td><td>Agregar, editar, archivar y restaurar. Archivar viene deshabilitado; se activa en Configuración.</td></tr>
+  <tr><td>Consultar</td><td>Buscar códigos dentro de la colección seleccionada, eliminar un código capturado por error (🗑️, pide confirmación) y descargar el CSV para Excel.</td></tr>
+  <tr><td>Configuración</td><td>Modo oscuro, color, tamaño de letra, vibración, permitir archivar, respaldo y acerca de.</td></tr>
+</table>
+
+<div class="ojo"><b>Sobre el lector:</b> la impresión de puntos de las bolsas es difícil de leer. La app <b>propone</b> el código (a veces hasta 3 opciones) y tú lo confirmas. Las confusiones típicas son 8/B, 0/O/D, 5/S y 1/I. Con buena luz, el celular quieto y el texto llenando el recuadro, la lectura mejora mucho. Siempre puedes usar <b>Escribir a mano</b>.</div>
+
+<div class="ojo"><b>Respaldo:</b> si borras los datos de Chrome, desinstalas la app o cambias de celular, los datos se pierden. Usa <b>Configuración → Exportar respaldo</b> de vez en cuando y guarda el archivo en Drive o en tu PC.</div>
+
+<h2>4. Publicar una actualización</h2>
+<ol>
+  <li>Cambia la versión en <code>js/config.js</code> (<code>APP_VERSION</code>) y en <code>sw.js</code> (<code>CACHE_VERSION</code>). Si agregaste archivos nuevos, agrégalos a la lista de <code>sw.js</code>.</li>
+  <li>En GitHub: <b>Add file → Upload files</b> y sube los archivos modificados con la misma ruta (los reemplaza).</li>
+  <li>En el celular, abre la app con internet: se actualiza sola y se recarga. Tus datos no se tocan.</li>
+</ol>
+
+<h2>5. Seguridad</h2>
+<ul>
+  <li>No hay servidor ni base de datos en internet: nadie puede “entrar” a la app a robar información.</li>
+  <li>La app no se conecta a ningún sitio después de instalarse; una política de seguridad (CSP) bloquea cualquier archivo externo.</li>
+  <li>Los datos quedan aislados en el almacenamiento de Chrome para esa dirección; otras apps y páginas no pueden leerlos.</li>
+  <li>La cámara solo está encendida en la pantalla Capturar; se apaga al salir o cambiar de app.</li>
+  <li>Los respaldos importados se validan campo por campo y el CSV se protege contra fórmulas maliciosas en Excel.</li>
+  <li>Cuida tu cuenta de GitHub (activa la verificación en dos pasos): quien la controle podría cambiar el código de la app.</li>
+</ul>
+</body>
+</html>

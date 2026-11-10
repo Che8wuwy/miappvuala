@@ -1,0 +1,77 @@
+// Acceso a IndexedDB con migraciones por versión.
+// Para crecer: agrega una función en MIGRACIONES con el siguiente número
+// y sube DB_VERSION en js/config.js. Nunca modifiques una migración ya publicada.
+
+import { DB_NOMBRE, DB_VERSION } from '../config.js';
+
+const MIGRACIONES = {
+  1(db) {
+    const col = db.createObjectStore('colecciones', { keyPath: 'id', autoIncrement: true });
+    col.createIndex('anio', 'anio');
+    col.createIndex('fechaCreacion', 'fechaCreacion');
+
+    const cod = db.createObjectStore('codigos', { keyPath: 'id', autoIncrement: true });
+    cod.createIndex('coleccionId', 'coleccionId');
+    // Regla clave: un código solo puede existir una vez POR colección
+    cod.createIndex('coleccion_codigo', ['coleccionId', 'codigo'], { unique: true });
+
+    db.createObjectStore('ajustes', { keyPath: 'clave' });
+
+    // ---- Fase 2 (ya creadas, vacías) ----
+    const fig = db.createObjectStore('figuras', { keyPath: 'id', autoIncrement: true });
+    fig.createIndex('coleccionId', 'coleccionId');
+    const img = db.createObjectStore('imagenes', { keyPath: 'id', autoIncrement: true });
+    img.createIndex('figuraId', 'figuraId');
+  },
+  // 2(db, tx) { ... siguiente cambio de estructura ... }
+};
+
+let dbPromesa = null;
+
+export function abrirDB() {
+  if (dbPromesa) return dbPromesa;
+  dbPromesa = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NOMBRE, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = req.result;
+      for (let v = e.oldVersion + 1; v <= DB_VERSION; v++) {
+        if (MIGRACIONES[v]) MIGRACIONES[v](db, req.transaction);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('Cierra otras pestañas de la app y vuelve a intentar.'));
+  });
+  return dbPromesa;
+}
+
+function prom(req) {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function tx(stores, modo, fn) {
+  const db = await abrirDB();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(stores, modo);
+    let resultado;
+    Promise.resolve(fn(t)).then((r) => { resultado = r; }, (err) => { try { t.abort(); } catch (_) {} reject(err); });
+    t.oncomplete = () => resolve(resultado);
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error || new Error('Operación cancelada'));
+  });
+}
+
+export const obtener = (store, clave) => tx(store, 'readonly', (t) => prom(t.objectStore(store).get(clave)));
+export const todos = (store) => tx(store, 'readonly', (t) => prom(t.objectStore(store).getAll()));
+export const porIndice = (store, indice, valor) =>
+  tx(store, 'readonly', (t) => prom(t.objectStore(store).index(indice).getAll(valor)));
+export const contarPorIndice = (store, indice, valor) =>
+  tx(store, 'readonly', (t) => prom(t.objectStore(store).index(indice).count(valor)));
+export const guardar = (store, obj) => tx(store, 'readwrite', (t) => prom(t.objectStore(store).put(obj)));
+export const agregar = (store, obj) => tx(store, 'readwrite', (t) => prom(t.objectStore(store).add(obj)));
+export const buscarIndice = (store, indice, valor) =>
+  tx(store, 'readonly', (t) => prom(t.objectStore(store).index(indice).get(valor)));
+export { prom };
