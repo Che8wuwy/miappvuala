@@ -1,4 +1,5 @@
-import { h, toast, alertaResultado, fechaHora, selectorColeccion } from '../core/ui.js';
+import { h, toast, alertaResultado, fechaHora, selectorColeccion, confirmar } from '../core/ui.js';
+import { cumpleFormato, describirFormato, ejemploFormato } from '../core/formato.js';
 import { listarColecciones, aniosDisponibles, registrarCodigo, normalizarCodigo, codigoValido } from '../core/repo.js';
 import { abrirCamara, cerrarCamara, recortarGuia, leerCodigo, prepararOCR, capacidades, ponerZoom, ponerLinterna, enfocarEn } from '../ocr/escaner.js';
 import { ajustes } from '../core/tema.js';
@@ -85,15 +86,22 @@ export async function render(cont) {
     class: 'codigo-input', type: 'text', inputmode: 'text', autocomplete: 'off', autocapitalize: 'characters',
     spellcheck: false, maxlength: String(CODIGO_MAX), placeholder: 'Escribe el código', 'aria-label': 'Código',
   });
+  const avisoFormato = h('p', { class: 'aviso-formato oculto' });
+  const revisarFormato = () => {
+    const ok = !entrada.value || cumpleFormato(entrada.value, ajustes.formatoCodigo);
+    avisoFormato.textContent = ok ? '' : `⚠️ No coincide con el formato ${ejemploFormato(ajustes.formatoCodigo)}: ${describirFormato(ajustes.formatoCodigo)}.`;
+    avisoFormato.classList.toggle('oculto', ok);
+  };
   entrada.addEventListener('input', () => {
     const pos = entrada.selectionStart;
     entrada.value = normalizarCodigo(entrada.value).slice(0, CODIGO_MAX);
     entrada.setSelectionRange(pos, pos);
+    revisarFormato();
   });
   const sugerencias = h('div', { class: 'sugerencias' });
   const panelConfirmar = h('div', { class: 'panel oculto' },
     h('p', { class: 'nota', text: 'Revisa el código y corrígelo si hace falta (ojo con 8/B, 0/O, 5/S, 1/I).' }),
-    sugerencias, entrada,
+    sugerencias, entrada, avisoFormato,
     h('div', { class: 'fila-botones' },
       h('button', { class: 'btn secundario', text: 'Volver a leer', onclick: () => mostrarCamara() }),
       h('button', { class: 'btn primario', text: 'Verificar y guardar', onclick: () => verificar() })));
@@ -114,8 +122,9 @@ export async function render(cont) {
   function mostrarConfirmar(lista, m) {
     metodo = m;
     sugerencias.replaceChildren(...lista.map((s) =>
-      h('button', { class: 'chip', text: s, onclick: () => { entrada.value = s; } })));
+      h('button', { class: 'chip', text: s, onclick: () => { entrada.value = s; revisarFormato(); } })));
     entrada.value = lista[0] || '';
+    revisarFormato();
     panelCamara.classList.add('oculto');
     panelConfirmar.classList.remove('oculto');
     cerrarCamara(stream); stream = null;
@@ -140,7 +149,7 @@ export async function render(cont) {
     ocupado = true; btnLeer.disabled = true; btnLeer.textContent = 'Leyendo…';
     try {
       const recorte = recortarGuia(video, guia);
-      const lista = await leerCodigo(recorte);
+      const lista = await leerCodigo(recorte, ajustes.formatoCodigo);
       if (!lista.length) toast('No se pudo leer el código. Usa el zoom y toca la imagen para enfocar, o escríbelo a mano.', 4000);
       mostrarConfirmar(lista, 'camara');
     } catch (e) {
@@ -154,6 +163,12 @@ export async function render(cont) {
     const codigo = normalizarCodigo(entrada.value);
     if (!coleccionId) return toast('Selecciona una colección.');
     if (!codigoValido(codigo)) return toast(`El código debe tener de ${CODIGO_MIN} a ${CODIGO_MAX} letras o números.`);
+    if (!cumpleFormato(codigo, ajustes.formatoCodigo)) {
+      const ok = await confirmar('El código no coincide con el formato',
+        `${codigo} no tiene la forma ${ejemploFormato(ajustes.formatoCodigo)} (${describirFormato(ajustes.formatoCodigo)}). ¿Guardarlo de todos modos?`,
+        { aceptar: 'Guardar de todos modos' });
+      if (!ok) return;
+    }
     try {
       const r = await registrarCodigo(coleccionId, codigo, metodo);
       const col = coleccion();

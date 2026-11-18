@@ -2,6 +2,7 @@ import { h, toast, confirmar, cargando } from '../core/ui.js';
 import { ajustes, cambiarAjuste } from '../core/tema.js';
 import { exportarRespaldo, importarRespaldo } from '../core/datos.js';
 import { APP_NOMBRE, APP_VERSION, COLORES, CODIGO_MIN, CODIGO_MAX } from '../config.js';
+import { normalizarFormato, describirFormato, ejemploFormato } from '../core/formato.js';
 
 export const titulo = 'Configuración';
 
@@ -62,6 +63,7 @@ export async function render(cont) {
     h('section', { class: 'panel' }, h('h2', { text: 'Opciones' }),
       interruptor('Permitir archivar colecciones', 'permitirArchivar', 'Deshabilitado por seguridad. Archivar oculta la colección pero no borra sus códigos.'),
       interruptor('Vibrar al verificar un código', 'vibrar')),
+    seccionFormato(),
     h('section', { class: 'panel' }, h('h2', { text: 'Respaldo de datos' }),
       h('p', { class: 'nota', text: 'Tus datos viven solo en este celular. Si borras los datos de Chrome o cambias de teléfono, se pierden. Haz un respaldo de vez en cuando y guárdalo en Drive o en tu PC.' }),
       h('div', { class: 'fila-botones' },
@@ -74,4 +76,19 @@ export async function render(cont) {
       h('p', { class: 'nota', text: `Códigos aceptados: de ${CODIGO_MIN} a ${CODIGO_MAX} letras y números.` }),
       h('p', { class: 'nota', text: 'Funciona sin internet. No envía datos a ningún servidor. Lector de texto: Tesseract.js (licencia Apache 2.0).' })),
   );
+}
+
+/** Formato del código: L = letra, N = número, ? = cualquiera. Vacío = sin formato. */
+function seccionFormato() {
+  const entrada = h('input', { type: 'text', class: 'codigo-input formato-input', maxlength: '12', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', value: ajustes.formatoCodigo || '', 'aria-label': 'Formato del código' });
+  const desc = h('p', { class: 'nota' });
+  const pintar = () => { const f = normalizarFormato(entrada.value); desc.textContent = f ? `Ejemplo: ${ejemploFormato(f)} · ${describirFormato(f)}` : describirFormato(''); };
+  entrada.addEventListener('input', () => { entrada.value = normalizarFormato(entrada.value); pintar(); });
+  entrada.addEventListener('change', () => { cambiarAjuste('formatoCodigo', normalizarFormato(entrada.value)); toast('Formato guardado'); });
+  pintar();
+  return h('section', { class: 'panel' }, h('h2', { text: 'Formato del código' }),
+    h('p', { class: 'nota', text: 'Usa L = letra, N = número, ? = letra o número. Con formato, la app corrige sola confusiones como 0/O, 5/S, 8/B y avisa si un código no coincide. Déjalo vacío para no usar formato.' }),
+    entrada, desc,
+    h('div', { class: 'fila-botones' },
+      h('button', { class: 'btn secundario', text: 'Restablecer LLLLNNLLL', onclick: () => { entrada.value = 'LLLLNNLLL'; pintar(); cambiarAjuste('formatoCodigo', 'LLLLNNLLL'); toast('Formato guardado'); } })));
 }

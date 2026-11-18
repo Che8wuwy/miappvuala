@@ -2,7 +2,7 @@
 // Cambia APP_VERSION en cada publicación (y también CACHE_VERSION en sw.js).
 
 export const APP_NOMBRE = 'MiAppVuala';
-export const APP_VERSION = '1.0.4';
+export const APP_VERSION = '1.0.5';
 
 // Base de datos local (IndexedDB)
 export const DB_NOMBRE = 'miappvuala';
@@ -34,6 +34,7 @@ export const AJUSTES_DEFAULT = {
   tamanoLetra: 100,          // porcentaje
   permitirArchivar: false,   // "Borrar colección" deshabilitado por defecto
   vibrar: true,
+  formatoCodigo: 'LLLLNNLLL', // L = letra, N = número, ? = cualquiera; vacío = sin formato
 };
 
 export const COLORES = ['#e85d04', '#d62828', '#2563eb', '#16a34a', '#7c3aed', '#0f766e'];

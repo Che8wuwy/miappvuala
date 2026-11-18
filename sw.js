@@ -2,7 +2,7 @@
 // Al publicar una nueva versión, cambia CACHE_VERSION (y APP_VERSION en js/config.js)
 // y agrega aquí cualquier archivo nuevo.
 
-const CACHE_VERSION = 'miappvuala-1.0.4';
+const CACHE_VERSION = 'miappvuala-1.0.5';
 
 const ARCHIVOS = [
   './',
@@ -18,6 +18,7 @@ const ARCHIVOS = [
   './js/core/ui.js',
   './js/core/tema.js',
   './js/core/datos.js',
+  './js/core/formato.js',
   './js/ocr/escaner.js',
   './js/screens/menu.js',
   './js/screens/capturar.js',

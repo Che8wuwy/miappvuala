@@ -3,6 +3,7 @@
 
 import { OCR, CODIGO_MIN, CODIGO_MAX } from '../config.js';
 import { normalizarCodigo } from '../core/repo.js';
+import { ajustarAFormato, cumpleFormato, consenso } from '../core/formato.js';
 
 let workerPromesa = null;
 
@@ -167,12 +168,12 @@ function variantes(origen) {
  * De todo lo leído, elige la línea del código: la PRIMERA línea (la de arriba) que
  * tenga la longitud esperada y que no sea la caducidad ("CAD…", fechas con "/") ni la hora ("14:05").
  */
-export function elegirLineaCodigo(texto) {
+export function elegirLineaCodigo(texto, formato = '') {
   const lineas = String(texto || '').split('\n').map((l) => l.trim()).filter(Boolean);
   for (const l of lineas) {
     const sinEspacios = l.toUpperCase().replace(/\s+/g, '');
     if (/^CAD/.test(sinEspacios) || /\d{1,2}\/\d{1,2}/.test(sinEspacios) || /\d{1,2}:\d{2}/.test(sinEspacios)) continue;
-    const c = normalizarCodigo(sinEspacios);
+    const c = ajustarAFormato(normalizarCodigo(sinEspacios), formato);
     if (c.length >= CODIGO_MIN) return c.slice(0, CODIGO_MAX);
   }
   return '';
@@ -257,19 +258,27 @@ function recortarBanda(recorte, b) {
  * Lee el código: separa las líneas del recuadro y lee de arriba hacia abajo;
  * se queda con la primera que parezca código (no caducidad ni hora).
  */
-export async function leerCodigo(recorte) {
+export async function leerCodigo(recorte, formato = '') {
   const w = await prepararOCR();
-  let bandas = bandasDeTexto(recorte);
+  const bandas = bandasDeTexto(recorte);
   // Cada línea detectada (de arriba hacia abajo); al final, el recuadro completo como respaldo
   const piezas = [...bandas.slice(0, 3).map((b) => recortarBanda(recorte, b)), recorte];
+  let primeraSinFormato = null;
   for (const pieza of piezas) {
-    const sugerencias = [];
+    const lecturas = [];
     for (const img of variantes(pieza)) {
       const { data } = await w.recognize(img);
-      const c = elegirLineaCodigo(data.text);
-      if (c && !sugerencias.includes(c)) sugerencias.push(c);
+      const c = elegirLineaCodigo(data.text, formato);
+      if (c) lecturas.push(c);
     }
-    if (sugerencias.length) return sugerencias;
+    if (!lecturas.length) continue;
+    // Votación entre las lecturas: la más probable va primero
+    const voto = consenso(lecturas, formato);
+    const lista = [...new Set([voto, ...lecturas].filter(Boolean))];
+    if (!formato || lista.some((x) => cumpleFormato(x, formato))) {
+      return lista.sort((a, b) => cumpleFormato(b, formato) - cumpleFormato(a, formato));
+    }
+    if (!primeraSinFormato) primeraSinFormato = lista; // no cumple el formato: sigue buscando en otras líneas
   }
-  return [];
+  return primeraSinFormato || [];
 }
