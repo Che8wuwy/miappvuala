@@ -34,6 +34,17 @@ export async function render(cont) {
     } });
 
   const almacenamiento = h('p', { class: 'nota', text: 'Revisando almacenamiento…' });
+  const offline = h('p', { class: 'nota', text: 'Revisando modo sin internet…' });
+  (async () => {
+    try {
+      const r = await caches.match('./__estado-offline.json');
+      if (!r) { offline.textContent = '⚠️ Modo sin internet: aún no está listo. Abre la app con internet, espera unos segundos y vuelve a revisar.'; return; }
+      const e = await r.json();
+      offline.textContent = e.faltan.length
+        ? `⚠️ Modo sin internet incompleto: faltan ${e.faltan.length} de ${e.total} archivos (${e.faltan.join(', ')}). Revisa que estén subidos a GitHub.`
+        : `✅ Modo sin internet listo (${e.guardados} archivos guardados).`;
+    } catch { offline.textContent = '⚠️ No se pudo revisar el modo sin internet.'; }
+  })();
   (async () => {
     try {
       const persistente = await navigator.storage?.persisted?.();
@@ -56,7 +67,7 @@ export async function render(cont) {
       h('div', { class: 'fila-botones' },
         h('button', { class: 'btn primario', text: '⬇️ Exportar respaldo', onclick: async () => { await exportarRespaldo(); toast('Respaldo generado'); } }),
         h('button', { class: 'btn secundario', text: '⬆️ Importar respaldo', onclick: () => archivo.click() })),
-      archivo, almacenamiento),
+      archivo, almacenamiento, offline),
     h('section', { class: 'panel' }, h('h2', { text: 'Acerca de' }),
       h('p', {}, h('strong', { text: APP_NOMBRE }), ` · versión ${APP_VERSION}`),
       h('p', { class: 'nota', text: 'Registra los códigos de lote de las bolsas Vuala por colección y avisa si un código ya se registró.' }),

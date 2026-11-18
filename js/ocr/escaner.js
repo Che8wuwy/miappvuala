@@ -25,8 +25,9 @@ export function prepararOCR(onProgreso) {
       logger: (m) => onProgreso && onProgreso(m),
     });
     await w.setParameters({
-      tessedit_char_whitelist: OCR.listaBlanca,
-      tessedit_pageseg_mode: '7', // una sola línea de texto
+      // Se permiten "/" y ":" solo para reconocer y descartar la línea de caducidad (CAD:17/02/27) y la hora
+      tessedit_char_whitelist: OCR.listaBlanca + '/: ',
+      tessedit_pageseg_mode: '6', // bloque de texto: puede haber 1 o 2 líneas en el recuadro
     });
     return w;
   })();
@@ -162,18 +163,28 @@ function variantes(origen) {
  * Lee el código del recorte. Devuelve sugerencias únicas (de 0 a 3).
  * El usuario SIEMPRE confirma o corrige antes de guardar.
  */
+/**
+ * De todo lo leído, elige la línea del código: la PRIMERA línea (la de arriba) que
+ * tenga la longitud esperada y que no sea la caducidad ("CAD…", fechas con "/") ni la hora ("14:05").
+ */
+export function elegirLineaCodigo(texto) {
+  const lineas = String(texto || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  for (const l of lineas) {
+    const sinEspacios = l.toUpperCase().replace(/\s+/g, '');
+    if (/^CAD/.test(sinEspacios) || /\d{1,2}\/\d{1,2}/.test(sinEspacios) || /\d{1,2}:\d{2}/.test(sinEspacios)) continue;
+    const c = normalizarCodigo(sinEspacios);
+    if (c.length >= CODIGO_MIN) return c.slice(0, CODIGO_MAX);
+  }
+  return '';
+}
+
 export async function leerCodigo(recorte) {
   const w = await prepararOCR();
   const sugerencias = [];
   for (const img of variantes(recorte)) {
     const { data } = await w.recognize(img);
-    // Toma la "palabra" más larga que encaje con la longitud esperada
-    const partes = (data.text || '').split(/\s*\n\s*/).map(normalizarCodigo).filter(Boolean);
-    const unido = normalizarCodigo(data.text);
-    for (const p of [unido, ...partes]) {
-      const recortado = p.slice(0, CODIGO_MAX);
-      if (recortado.length >= CODIGO_MIN && !sugerencias.includes(recortado)) { sugerencias.push(recortado); break; }
-    }
+    const c = elegirLineaCodigo(data.text);
+    if (c && !sugerencias.includes(c)) sugerencias.push(c);
   }
   return sugerencias;
 }

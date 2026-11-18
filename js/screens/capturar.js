@@ -32,7 +32,7 @@ export async function render(cont) {
   const guia = h('div', { class: 'guia' });
   const estadoOCR = h('p', { class: 'nota', text: 'Preparando lector de texto…' });
   const zonaCamara = h('div', { class: 'camara' }, video, guia,
-    h('div', { class: 'camara-ayuda', text: 'Encuadra SOLO la primera línea del código' }));
+    h('div', { class: 'camara-ayuda', text: 'Encuadra el código; puede entrar también la línea de abajo' }));
 
   // ---- Zoom, enfoque al tocar y linterna ----
   const etiquetaZoom = h('span', { class: 'zoom-valor', text: '1.0x' });
