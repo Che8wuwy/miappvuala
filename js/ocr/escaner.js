@@ -27,7 +27,7 @@ export function prepararOCR(onProgreso) {
     await w.setParameters({
       // Se permiten "/" y ":" solo para reconocer y descartar la línea de caducidad (CAD:17/02/27) y la hora
       tessedit_char_whitelist: OCR.listaBlanca + '/: ',
-      tessedit_pageseg_mode: '6', // bloque de texto: puede haber 1 o 2 líneas en el recuadro
+      tessedit_pageseg_mode: '7', // una sola línea: antes se separan las líneas del recuadro (ver bandasDeTexto)
     });
     return w;
   })();
@@ -178,13 +178,98 @@ export function elegirLineaCodigo(texto) {
   return '';
 }
 
+/**
+ * Encuentra las líneas de texto del recuadro (de arriba hacia abajo) con un perfil de "tinta" por fila.
+ * Devuelve [{ y0, y1 }] en pixeles del recorte.
+ */
+export function bandasDeTexto(recorte) {
+  const W = 400, H = Math.max(20, Math.round(recorte.height * (W / recorte.width)));
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.filter = 'grayscale(1)';
+  ctx.drawImage(recorte, 0, 0, W, H);
+  const d = ctx.getImageData(0, 0, W, H).data;
+  const gris = new Uint8Array(W * H), hist = new Array(256).fill(0);
+  for (let i = 0; i < gris.length; i++) { gris[i] = d[i * 4]; hist[gris[i]]++; }
+  const perc = (p) => { let a = 0; for (let i = 0; i < 256; i++) { a += hist[i]; if (a >= gris.length * p) return i; } return 255; };
+  const umbral = (perc(0.01) + perc(0.5)) / 2; // lo más oscuro = tinta
+  const fila = new Float32Array(H);
+  for (let y = 0; y < H; y++) { let k = 0; for (let x = 0; x < W; x++) if (gris[y * W + x] < umbral) k++; fila[y] = k / W; }
+  // Suaviza para unir los puntos de la impresión de cada línea
+  const v = Math.max(1, Math.round(H * 0.025));
+  const suave = fila.map((_, y) => { let s = 0, n = 0; for (let j = y - v; j <= y + v; j++) if (j >= 0 && j < H) { s += fila[j]; n++; } return s / n; });
+  const max = Math.max(...suave);
+  if (max <= 0) return [];
+  const corte = Math.max(0.015, max * 0.25);
+  let bandas = [], ini = -1;
+  for (let y = 0; y <= H; y++) {
+    const on = y < H && suave[y] > corte;
+    if (on && ini < 0) ini = y;
+    if (!on && ini >= 0) { bandas.push({ y0: ini, y1: y }); ini = -1; }
+  }
+  // Une bandas casi pegadas y descarta las muy delgadas (ruido)
+  const unidas = [];
+  for (const b of bandas) {
+    const u = unidas[unidas.length - 1];
+    if (u && b.y0 - u.y1 < H * 0.03) u.y1 = b.y1; else unidas.push({ ...b });
+  }
+  // Si dos líneas quedaron pegadas en una sola banda, se parte en el "valle" de menos tinta
+  const fina = fila.map((_, y) => { let s = 0, n = 0; for (let j = y - 1; j <= y + 1; j++) if (j >= 0 && j < H) { s += fila[j]; n++; } return s / n; });
+  const partir = (b, prof = 0) => {
+    const alto = b.y1 - b.y0;
+    if (prof > 2 || alto < H * 0.18) return [b];
+    let pico = 0; for (let y = b.y0; y < b.y1; y++) pico = Math.max(pico, fina[y]);
+    let mejor = -1, valor = Infinity;
+    for (let y = b.y0 + Math.round(alto * 0.25); y < b.y1 - Math.round(alto * 0.25); y++) if (fina[y] < valor) { valor = fina[y]; mejor = y; }
+    if (mejor < 0 || valor > pico * 0.35) return [b];
+    return [...partir({ y0: b.y0, y1: mejor }, prof + 1), ...partir({ y0: mejor, y1: b.y1 }, prof + 1)];
+  };
+  const lineas = unidas.flatMap((b) => partir(b));
+  const altoMax = Math.max(...lineas.map((b) => b.y1 - b.y0), 1);
+  const k = recorte.height / H;
+  // Extensión horizontal de la tinta de cada línea (columnas con suficiente tinta)
+  const extension = (b) => {
+    const col = new Float32Array(W);
+    for (let y = b.y0; y < b.y1; y++) for (let x = 0; x < W; x++) if (gris[y * W + x] < umbral) col[x]++;
+    const min = (b.y1 - b.y0) * 0.08;
+    let x0 = 0, x1 = W - 1;
+    while (x0 < W && col[x0] < min) x0++;
+    while (x1 > x0 && col[x1] < min) x1--;
+    return { x0, x1: x1 + 1 };
+  };
+  return lineas.filter((b) => b.y1 - b.y0 >= altoMax * 0.45)
+    .map((b) => { const e = extension(b); return { y0: Math.round(b.y0 * k), y1: Math.round(b.y1 * k), x0: Math.round(e.x0 * k), x1: Math.round(e.x1 * k) }; });
+}
+
+/** Recorta una banda (línea) del recorte, con un pequeño margen arriba y abajo. */
+function recortarBanda(recorte, b) {
+  const alto = b.y1 - b.y0, m = Math.round(alto * 0.2);
+  const y0 = Math.max(0, b.y0 - m), y1 = Math.min(recorte.height, b.y1 + m);
+  // Recorte horizontal al texto (quita bordes y manchas a los lados)
+  let x0 = 0, x1 = recorte.width;
+  if (b.x0 != null) { const mx = alto; x0 = Math.max(0, b.x0 - mx); x1 = Math.min(recorte.width, b.x1 + mx); }
+  const c = document.createElement('canvas'); c.width = x1 - x0; c.height = y1 - y0;
+  c.getContext('2d').drawImage(recorte, x0, y0, x1 - x0, y1 - y0, 0, 0, x1 - x0, y1 - y0);
+  return c;
+}
+
+/**
+ * Lee el código: separa las líneas del recuadro y lee de arriba hacia abajo;
+ * se queda con la primera que parezca código (no caducidad ni hora).
+ */
 export async function leerCodigo(recorte) {
   const w = await prepararOCR();
-  const sugerencias = [];
-  for (const img of variantes(recorte)) {
-    const { data } = await w.recognize(img);
-    const c = elegirLineaCodigo(data.text);
-    if (c && !sugerencias.includes(c)) sugerencias.push(c);
+  let bandas = bandasDeTexto(recorte);
+  // Cada línea detectada (de arriba hacia abajo); al final, el recuadro completo como respaldo
+  const piezas = [...bandas.slice(0, 3).map((b) => recortarBanda(recorte, b)), recorte];
+  for (const pieza of piezas) {
+    const sugerencias = [];
+    for (const img of variantes(pieza)) {
+      const { data } = await w.recognize(img);
+      const c = elegirLineaCodigo(data.text);
+      if (c && !sugerencias.includes(c)) sugerencias.push(c);
+    }
+    if (sugerencias.length) return sugerencias;
   }
-  return sugerencias;
+  return [];
 }

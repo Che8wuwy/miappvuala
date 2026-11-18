@@ -2,7 +2,7 @@
 // Cambia APP_VERSION en cada publicación (y también CACHE_VERSION en sw.js).
 
 export const APP_NOMBRE = 'MiAppVuala';
-export const APP_VERSION = '1.0.3';
+export const APP_VERSION = '1.0.4';
 
 // Base de datos local (IndexedDB)
 export const DB_NOMBRE = 'miappvuala';
